@@ -24,12 +24,13 @@ func NewRepo(db *sql.DB) (medical.Repository, error) {
 
 func (repo *repo) PostVisit(ctx context.Context, patientID string, v medical.Visit) error {
 	patient := medical.Patient{}
-	err := repo.db.QueryRowContext(ctx, "SELECT * FROM patient WHERE id = ?", patientID).Scan(&patient)
+	err := repo.db.QueryRowContext(ctx, "SELECT * FROM patient WHERE id = ?", patientID).
+		Scan(&patient.ID, &patient.Name, &patient.Sex, &patient.Age)
 	if err != nil {
 		return ErrIdNotFound
 	}
-	_, errs := repo.db.ExecContext(ctx, "INSERT INTO visit(id, patient, day, time) VALUES (?, ?, ?, ?)",
-		v.ID, patient, v.Day, v.Time)
+	_, errs := repo.db.ExecContext(ctx, "INSERT INTO visit(id, patient, schedule) VALUES (?, ?, ?)",
+		v.ID, patient, v.Schedule)
 	if errs != nil {
 		return ErrDatabase
 	}
@@ -38,7 +39,8 @@ func (repo *repo) PostVisit(ctx context.Context, patientID string, v medical.Vis
 
 func (repo *repo) GetVisit(ctx context.Context, visitID string) (medical.Visit, error) {
 	visit := medical.Visit{}
-	err := repo.db.QueryRowContext(ctx, "SELECT * FROM patient WHERE id = ?", visitID).Scan(&visit)
+	err := repo.db.QueryRowContext(ctx, "SELECT * FROM visit WHERE id = ?", visitID).
+		Scan(&visit.ID, &visit.Patient, &visit.Schedule)
 	if err != nil {
 		return medical.Visit{}, ErrIdNotFound
 	}
@@ -46,7 +48,7 @@ func (repo *repo) GetVisit(ctx context.Context, visitID string) (medical.Visit, 
 }
 
 func (repo *repo) PostPatient(ctx context.Context, p medical.Patient) error {
-	_, errs := repo.db.ExecContext(ctx, "INSERT INTO visit(id, name, sex, age) VALUES (?, ?, ?, ?)",
+	_, errs := repo.db.ExecContext(ctx, "INSERT INTO patient(id, name, sex, age) VALUES (?, ?, ?, ?)",
 		p.ID, p.Name, p.Sex, p.Age)
 	if errs != nil {
 		return ErrDatabase
@@ -56,7 +58,8 @@ func (repo *repo) PostPatient(ctx context.Context, p medical.Patient) error {
 
 func (repo *repo) GetPatient(ctx context.Context, patientID string) (medical.Patient, error) {
 	patient := medical.Patient{}
-	err := repo.db.QueryRowContext(ctx, "SELECT * FROM patient WHERE id = ?", patientID).Scan(&patient)
+	err := repo.db.QueryRowContext(ctx, "SELECT * FROM patient WHERE id = ?", patientID).
+		Scan(&patient.ID, &patient.Name, &patient.Sex, &patient.Age)
 	if err != nil {
 		return medical.Patient{}, ErrIdNotFound
 	}

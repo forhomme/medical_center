@@ -20,7 +20,6 @@ func main() {
 	flag.Parse()
 
 	db := database.DbConn()
-	defer db.Close()
 
 	var logger log.Logger
 	{
