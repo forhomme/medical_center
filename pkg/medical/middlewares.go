@@ -22,11 +22,11 @@ type loggingMiddleware struct {
 	logger log.Logger
 }
 
-func (mw loggingMiddleware) PostVisit(ctx context.Context, patientId string, v Visit) (err error) {
+func (mw loggingMiddleware) PostVisit(ctx context.Context, v Visit) (err error) {
 	defer func(begin time.Time) {
 		mw.logger.Log("method", "PostVisit", "visitID", v.ID, "took", time.Since(begin), "error", err)
 	}(time.Now())
-	return mw.next.PostVisit(ctx, patientId, v)
+	return mw.next.PostVisit(ctx, v)
 }
 
 func (mw loggingMiddleware) GetVisit(ctx context.Context, id string) (v Visit, err error) {

@@ -24,7 +24,7 @@ func MakeServerEndpoints(s Service) Endpoints {
 func MakePostVisitEndpoints(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(postVisit)
-		e := s.PostVisit(ctx, req.PatientID, req.Visit)
+		e := s.PostVisit(ctx, req.Visit)
 		return postVisitResponse{Err: e}, nil
 	}
 }
@@ -55,8 +55,7 @@ func MakeGetPatientEndpoints(s Service) endpoint.Endpoint {
 
 // make struct for return of endpoints
 type postVisit struct {
-	PatientID string
-	Visit     Visit
+	Visit Visit
 }
 
 type postVisitResponse struct {

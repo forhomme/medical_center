@@ -3,13 +3,14 @@ package medical
 import (
 	"context"
 	"errors"
+	"strconv"
 	"sync"
 	"time"
 )
 
 // simple CRUD
 type Service interface {
-	PostVisit(ctx context.Context, patientID string, visit Visit) error
+	PostVisit(ctx context.Context, v Visit) error
 	GetVisit(ctx context.Context, id string) (Visit, error)
 	PostPatient(ctx context.Context, p Patient) error
 	GetPatient(ctx context.Context, id string) (Patient, error)
@@ -17,23 +18,24 @@ type Service interface {
 
 // for connection to db
 type Repository interface {
-	PostVisit(ctx context.Context, patientID string, visit Visit) error
+	PostVisit(ctx context.Context, v Visit) error
 	GetVisit(ctx context.Context, id string) (Visit, error)
 	PostPatient(ctx context.Context, p Patient) error
 	GetPatient(ctx context.Context, id string) (Patient, error)
 }
 
 type Visit struct {
-	ID       string    `json:"id"`
-	Patient  Patient   `json:"patient,omitempty"`
-	Schedule time.Time `json:"schedule,omitempty"`
+	ID        int       `json:"id" gorm:"primaryKey"`
+	PatientID int       `json:"patient_id"`
+	Patient   Patient   `json:"patient" gorm:"foreignKey:PatientID"`
+	Schedule  time.Time `json:"schedule"`
 }
 
 type Patient struct {
-	ID   string `json:"id"`
-	Name string `json:"name,omitempty"`
-	Sex  string `json:"sex,omitempty"`
-	Age  int    `json:"age,omitempty"`
+	ID   int    `json:"id" gorm:"primary_key"`
+	Name string `json:"name"`
+	Sex  string `json:"sex"`
+	Age  int    `json:"age"`
 }
 
 var (
@@ -55,7 +57,7 @@ func NewMedicalService(rep Repository) Service {
 
 func checkSchedule(v Visit) (Visit, error) {
 	if v.Schedule.IsZero() {
-		return Visit{}, ErrBadRouting
+		return Visit{}, ErrNotFound
 	}
 	day := v.Schedule.Weekday()
 	schedule := Visit{}
@@ -177,25 +179,24 @@ func checkSchedule(v Visit) (Visit, error) {
 	return schedule, nil
 }
 
-func (m *medicalService) PostVisit(ctx context.Context, patientId string, v Visit) error {
+func (m *medicalService) PostVisit(ctx context.Context, v Visit) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
-	var patient Patient
-	patient, err := m.repository.GetPatient(ctx, patientId)
-	if err != nil {
-		return ErrNotFound
-	}
-	visit, errs := checkSchedule(v)
-	if errs != nil {
-		return errs
+	//visit, errs := checkSchedule(v)
+	//if errs != nil {
+	//	return errs
+	//}
+	_, err := m.repository.GetVisit(ctx, strconv.Itoa(v.ID))
+	if err == nil {
+		return ErrAlreadyExists
 	}
 	visitDetail := Visit{
-		ID:       visit.ID,
-		Patient:  patient,
-		Schedule: visit.Schedule,
+		ID:       v.ID,
+		Patient:  v.Patient,
+		Schedule: v.Schedule,
 	}
-	if err := m.repository.PostVisit(ctx, patientId, visitDetail); err != nil {
-		return ErrBadRouting
+	if err := m.repository.PostVisit(ctx, visitDetail); err != nil {
+		return err
 	}
 	return nil
 }
@@ -214,6 +215,10 @@ func (m *medicalService) GetVisit(ctx context.Context, id string) (Visit, error)
 func (m *medicalService) PostPatient(ctx context.Context, p Patient) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
+	_, err := m.repository.GetPatient(ctx, strconv.Itoa(p.ID))
+	if err == nil {
+		return ErrAlreadyExists
+	}
 	if err := m.repository.PostPatient(ctx, p); err != nil {
 		return err
 	}
