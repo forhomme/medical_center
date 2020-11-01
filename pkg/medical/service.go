@@ -55,6 +55,19 @@ func NewMedicalService(rep Repository) Service {
 	}
 }
 
+func nestedLoop(h []int, m []int, v Visit) Visit {
+	var visit Visit
+	for _, a := range h {
+		for _, b := range m {
+			if v.Schedule.Hour() == a && v.Schedule.Minute() == b {
+				visit = v
+				return visit
+			}
+		}
+	}
+	return visit
+}
+
 func checkSchedule(v Visit) (Visit, error) {
 	if v.Schedule.IsZero() {
 		return Visit{}, ErrNotFound
@@ -63,118 +76,54 @@ func checkSchedule(v Visit) (Visit, error) {
 	schedule := Visit{}
 	switch day {
 	case time.Monday:
-		hour := [7]int{8, 9, 10, 14, 15, 20, 21}
+		hour := []int{8, 9, 10, 14, 15, 20, 21}
 		minute := make([]int, 60)
 		for i := range minute {
 			minute[i] = i
 		}
-		for _, a := range hour {
-			for _, b := range minute {
-				if a == v.Schedule.Hour() && b == v.Schedule.Minute() {
-					schedule = v
-					break
-				} else {
-					schedule = Visit{}
-				}
-			}
-		}
+		schedule = nestedLoop(hour, minute, v)
 	case time.Tuesday:
-		hour := [5]int{10, 11, 15, 16, 17}
+		hour := []int{10, 11, 15, 16, 17}
 		minute := make([]int, 60)
 		for i := range minute {
 			minute[i] = i
 		}
-		for _, a := range hour {
-			for _, b := range minute {
-				if a == v.Schedule.Hour() && b == v.Schedule.Minute() {
-					schedule = v
-					break
-				} else {
-					schedule = Visit{}
-				}
-			}
-		}
+		schedule = nestedLoop(hour, minute, v)
 	case time.Wednesday:
-		hour := [5]int{13, 14, 15, 16, 17}
+		hour := []int{13, 14, 15, 16, 17}
 		minute := make([]int, 60)
 		for i := range minute {
 			minute[i] = i
 		}
-		for _, a := range hour {
-			for _, b := range minute {
-				if a == v.Schedule.Hour() && b == v.Schedule.Minute() {
-					schedule = v
-					break
-				} else {
-					schedule = Visit{}
-				}
-			}
-		}
+		schedule = nestedLoop(hour, minute, v)
 	case time.Thursday:
-		hour := [7]int{8, 9, 10, 14, 15, 16, 17}
+		hour := []int{8, 9, 10, 14, 15, 16, 17}
 		minute := make([]int, 60)
 		for i := range minute {
 			minute[i] = i
 		}
-		for _, a := range hour {
-			for _, b := range minute {
-				if a == v.Schedule.Hour() && b == v.Schedule.Minute() {
-					schedule = v
-					break
-				} else {
-					schedule = Visit{}
-				}
-			}
-		}
+		schedule = nestedLoop(hour, minute, v)
 	case time.Friday:
-		hour := [4]int{14, 15, 16, 17}
+		hour := []int{14, 15, 16, 17}
 		minute := make([]int, 60)
 		for i := range minute {
 			minute[i] = i
 		}
-		for _, a := range hour {
-			for _, b := range minute {
-				if a == v.Schedule.Hour() && b == v.Schedule.Minute() {
-					schedule = v
-					break
-				} else {
-					schedule = Visit{}
-				}
-			}
-		}
+		schedule = nestedLoop(hour, minute, v)
 	case time.Saturday:
-		hour := [3]int{8, 9, 10}
+		hour := []int{8, 9, 10}
 		minute := make([]int, 60)
 		for i := range minute {
 			minute[i] = i
 		}
-		for _, a := range hour {
-			for _, b := range minute {
-				if a == v.Schedule.Hour() && b == v.Schedule.Minute() {
-					schedule = v
-					break
-				} else {
-					schedule = Visit{}
-				}
-			}
-		}
+		schedule = nestedLoop(hour, minute, v)
 	case time.Sunday:
-		hour := [3]int{20, 21, 22}
+		hour := []int{20, 21, 22}
 		minute := make([]int, 60)
 		for i := range minute {
 			minute[i] = i
 		}
-		for _, a := range hour {
-			for _, b := range minute {
-				if a == v.Schedule.Hour() && b == v.Schedule.Minute() {
-					schedule = v
-					break
-				} else {
-					schedule = Visit{}
-				}
-			}
-		}
-
+		schedule = nestedLoop(hour, minute, v)
 	}
 	return schedule, nil
 }
@@ -182,18 +131,18 @@ func checkSchedule(v Visit) (Visit, error) {
 func (m *medicalService) PostVisit(ctx context.Context, v Visit) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
-	//visit, errs := checkSchedule(v)
-	//if errs != nil {
-	//	return errs
-	//}
+	visit, errs := checkSchedule(v)
+	if errs != nil {
+		return errs
+	}
 	_, err := m.repository.GetVisit(ctx, strconv.Itoa(v.ID))
 	if err == nil {
 		return ErrAlreadyExists
 	}
 	visitDetail := Visit{
-		ID:       v.ID,
-		Patient:  v.Patient,
-		Schedule: v.Schedule,
+		ID:       visit.ID,
+		Patient:  visit.Patient,
+		Schedule: visit.Schedule,
 	}
 	if err := m.repository.PostVisit(ctx, visitDetail); err != nil {
 		return err
