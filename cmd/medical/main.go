@@ -30,12 +30,8 @@ func main() {
 
 	var s medical.Service
 	{
-		repo, err := database.NewRepo(db)
-		if err != nil {
-			logger.Log("exit", err)
-		}
-		s = medical.NewMedicalService(repo)
-		s = medical.LoggingMiddleware(logger)(s)
+		s = medical.NewMedicalService(db)
+		s = medical.LoggingMiddleware(logger, db)(s)
 	}
 
 	var h http.Handler

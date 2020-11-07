@@ -3,21 +3,13 @@ package medical
 import (
 	"context"
 	"errors"
-	"strconv"
+	"github.com/jinzhu/gorm"
 	"sync"
 	"time"
 )
 
 // simple CRUD
 type Service interface {
-	PostVisit(ctx context.Context, v Visit) error
-	GetVisit(ctx context.Context, id string) (Visit, error)
-	PostPatient(ctx context.Context, p Patient) error
-	GetPatient(ctx context.Context, id string) (Patient, error)
-}
-
-// for connection to db
-type Repository interface {
 	PostVisit(ctx context.Context, v Visit) error
 	GetVisit(ctx context.Context, id string) (Visit, error)
 	PostPatient(ctx context.Context, p Patient) error
@@ -45,13 +37,13 @@ var (
 )
 
 type medicalService struct {
-	mtx        sync.RWMutex
-	repository Repository
+	mtx sync.RWMutex
+	db  *gorm.DB
 }
 
-func NewMedicalService(rep Repository) Service {
+func NewMedicalService(db *gorm.DB) Service {
 	return &medicalService{
-		repository: rep,
+		db: db,
 	}
 }
 
@@ -135,16 +127,11 @@ func (m *medicalService) PostVisit(ctx context.Context, v Visit) error {
 	if errs != nil {
 		return errs
 	}
-	_, err := m.repository.GetVisit(ctx, strconv.Itoa(v.ID))
-	if err == nil {
-		return ErrAlreadyExists
-	}
 	visitDetail := Visit{
-		ID:       visit.ID,
 		Patient:  visit.Patient,
 		Schedule: visit.Schedule,
 	}
-	if err := m.repository.PostVisit(ctx, visitDetail); err != nil {
+	if err := m.db.Create(&visitDetail).Error; err != nil {
 		return err
 	}
 	return nil
@@ -154,7 +141,7 @@ func (m *medicalService) GetVisit(ctx context.Context, id string) (Visit, error)
 	m.mtx.RLock()
 	defer m.mtx.RUnlock()
 	var obj Visit
-	obj, err := m.repository.GetVisit(ctx, id)
+	err := m.db.Preload("Patient").First(&obj, id).Error
 	if err != nil {
 		return Visit{}, err
 	}
@@ -164,11 +151,7 @@ func (m *medicalService) GetVisit(ctx context.Context, id string) (Visit, error)
 func (m *medicalService) PostPatient(ctx context.Context, p Patient) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
-	_, err := m.repository.GetPatient(ctx, strconv.Itoa(p.ID))
-	if err == nil {
-		return ErrAlreadyExists
-	}
-	if err := m.repository.PostPatient(ctx, p); err != nil {
+	if err := m.db.Create(&p).Error; err != nil {
 		return err
 	}
 	return nil
@@ -178,8 +161,7 @@ func (m *medicalService) GetPatient(ctx context.Context, id string) (Patient, er
 	m.mtx.RLock()
 	defer m.mtx.RUnlock()
 	var obj Patient
-	obj, err := m.repository.GetPatient(ctx, id)
-	if err != nil {
+	if err := m.db.First(&obj, id).Error; err != nil {
 		return Patient{}, err
 	}
 	return obj, nil
